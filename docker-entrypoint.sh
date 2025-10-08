@@ -20,6 +20,12 @@ postconf -e "mynetworks=${MYNETWORKS}"
 postconf -e "disable_dns_lookups=${DISABLE_DNS_LOOKUPS}"
 postconf -e "local_recipient_maps=${LOCAL_RECIPIENT_MAPS}"
 
+# Disable TLS/SSL for local testing
+postconf -e "smtpd_tls_security_level=none"
+postconf -e "smtp_tls_security_level=none"
+postconf -e "smtpd_use_tls=no"
+postconf -e "smtp_use_tls=no"
+
 # Create custom user if specified and not root
 if [ "$MAIL_USER" != "root" ]; then
     # Check if user already exists
