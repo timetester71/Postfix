@@ -22,7 +22,7 @@ version: '3.8'
 
 services:
   postfix:
-    build: https://github.com/mlovick/postfix-docker.git
+    build: https://github.com/timetester71/Postfix.git
     image: mlovick/postfix
     container_name: postfix-test
     hostname: mail.example.local
@@ -141,7 +141,7 @@ docker exec postfix-test postqueue -p
 ## Building from Source
 
 ```bash
-git clone https://github.com/mlovick/postfix-docker.git
+git clone https://github.com/timetester71/Postfix.git
 cd postfix-docker
 docker build -t mlovick/postfix .
 ```
@@ -217,4 +217,4 @@ MIT License - Feel free to use and modify as needed.
 
 ## Contributing
 
-Issues and pull requests welcome at https://github.com/mlovick/postfix-docker
+Issues and pull requests welcome at https://github.com/timetester71/Postfix
