@@ -1,12 +1,15 @@
 FROM debian:bookworm-slim
 
-# Install Postfix and necessary tools
+# Install Postfix, Dovecot, and necessary tools
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     postfix \
     mailutils \
     sasl2-bin \
     libsasl2-modules \
+    dovecot-imapd \
+    dovecot-lmtpd \
+    supervisor \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -29,9 +32,15 @@ RUN mkdir -p /var/spool/postfix /var/mail
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-# Expose SMTP port
-EXPOSE 25
+# Create supervisor config directory
+RUN mkdir -p /etc/supervisor/conf.d
 
-# Start Postfix
+# Copy supervisor configuration
+COPY supervisord.conf /etc/supervisor/supervisord.conf
+
+# Expose SMTP and IMAP ports
+EXPOSE 25 143
+
+# Start services via supervisor
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["postfix", "start-fg"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

@@ -7,7 +7,8 @@ A lightweight Postfix SMTP server for local application testing. Built on Debian
 - **Local testing optimized** - No DNS lookups, accepts mail from local networks
 - **Configurable via environment variables** - Easy customization without rebuilding
 - **Custom user support** - Create a specific mail user instead of using root
-- **Real-time logging** - All Postfix logs output to Docker logs
+- **IMAP access** - Check received mail using any IMAP client
+- **Real-time logging** - All Postfix and Dovecot logs output to Docker logs
 - **Persistent mail storage** - Mail data stored in mounted volume
 - **Alias management** - Configure email aliases via environment variables
 - **Strict recipient validation** - Only accepts mail for configured aliases
@@ -29,6 +30,7 @@ services:
     hostname: mail.example.local
     ports:
       - "25:25"
+      - "143:143"
     volumes:
       - ./mail-data:/var/mail
     environment:
@@ -50,6 +52,7 @@ docker run -d \
   --name postfix-test \
   --hostname mail.example.local \
   -p 25:25 \
+  -p 143:143 \
   -v ./mail-data:/var/mail \
   -e MAIL_USER="mark" \
   -e MAIL_PASSWORD="testpassword" \
@@ -92,6 +95,7 @@ The following aliases always route to the configured mail user (default: root):
 docker run -d \
   --name postfix \
   -p 25:25 \
+  -p 143:143 \
   -v ./mail-data:/var/mail \
   mlovick/postfix
 ```
@@ -133,10 +137,10 @@ environment:
 ### Send Test Email
 ```bash
 # From host machine (replace 'mark' with your MAIL_USER)
-echo "Test message body" | mail -s "Test Subject" mark@example.com
+echo "Test message body" | mail -s "Test Subject" mark@mail.example.local
 
 # From inside container
-docker exec -i postfix-test mail -s "Test" admin@example.com
+docker exec -i postfix-test mail -s "Test" admin@mail.example.local
 ```
 
 ### Check Delivered Mail
@@ -164,11 +168,50 @@ docker exec postfix-test postqueue -p
 docker exec -it postfix-test su - mark
 ```
 
+### Check Mail via IMAP
+
+You can connect to the IMAP server using any mail client:
+
+**Connection Settings:**
+- **Server**: localhost (or container IP)
+- **Port**: 143
+- **Security**: None (plain text)
+- **Username**: Your MAIL_USER value (e.g., "mark")
+- **Password**: Your MAIL_PASSWORD value
+
+**Example using command line (Alpine Linux mail client):**
+```bash
+# Install alpine if needed
+apt-get install alpine
+
+# Connect to IMAP
+alpine -inbox={localhost:143/notls}INBOX -user=mark
+```
+
+**Example using telnet for testing:**
+```bash
+telnet localhost 143
+# Then authenticate:
+# a1 LOGIN mark testpassword
+# a2 SELECT INBOX
+# a3 FETCH 1 BODY[]
+# a4 LOGOUT
+```
+
+**Example using Thunderbird or similar:**
+1. Add new mail account
+2. Configure incoming server as IMAP
+3. Server: localhost, Port: 143
+4. Connection security: None
+5. Authentication: Normal password
+6. Username: mark (or your MAIL_USER)
+7. Password: testpassword (or your MAIL_PASSWORD)
+
 ## Building from Source
 
 ```bash
 git clone https://github.com/timetester71/Postfix.git
-cd postfix-docker
+cd Postfix
 docker build -t mlovick/postfix .
 ```
 
@@ -195,10 +238,19 @@ cat mail-data/mark
 
 ## Connecting Your Application
 
+### SMTP (Sending Mail)
 Configure your application to use:
 - **Host**: `localhost` (or container name if on same Docker network)
 - **Port**: `25`
 - **Authentication**: None required
+- **TLS/SSL**: Not configured (local testing only)
+
+### IMAP (Reading Mail)
+Configure your mail client to use:
+- **Host**: `localhost` (or container name if on same Docker network)
+- **Port**: `143`
+- **Username**: Value of MAIL_USER environment variable
+- **Password**: Value of MAIL_PASSWORD environment variable
 - **TLS/SSL**: Not configured (local testing only)
 
 ### Example: PHP
@@ -250,13 +302,21 @@ This happens when the container is recreated but the mail-data volume persists. 
 - Clear the mail-data directory
 - The container will skip user creation if user already exists
 
+### IMAP connection refused or authentication failed
+1. Verify port 143 is exposed: `docker ps` should show `0.0.0.0:143->143/tcp`
+2. Check Dovecot is running: `docker exec postfix-test supervisorctl status`
+3. Verify credentials match MAIL_USER and MAIL_PASSWORD environment variables
+4. Check Dovecot logs: `docker logs postfix-test | grep dovecot`
+5. Test with telnet: `telnet localhost 143` (should show Dovecot banner)
+
 ## Security Warning
 
 **This container is designed for LOCAL TESTING ONLY.**
 
 - No authentication required for SMTP
+- IMAP uses plain text authentication (no encryption)
 - Accepts mail from all local networks by default
-- No TLS/encryption configured
+- No TLS/encryption configured for SMTP or IMAP
 - Passwords stored in plain text environment variables
 - Should never be exposed to the public internet
 
